@@ -1,9 +1,11 @@
 sig Track {
 	succs : set Track,
-	// signals : set Signal
+    var state: one State,
 }
 sig Junction, Entry, Exit in Track {}
-var sig Free, Occupied, Unknown in Track {}
+
+abstract sig State {}
+one sig Free, Occupied, Unknown extends State {}
 
 fact Tracks {
     // No loops
@@ -18,14 +20,12 @@ fact Tracks {
     Junction = { j: Track | some p1, p2: succs.j | p1 != p2 }
 }
 
-// sig Signal {}
-// sig Semaphore, Speed extends Signal {}
-
 sig TrainCar {
     var succ: lone TrainCar,
-    track: one Track
+    var track: one Track,
 }
 sig Head, Tail in TrainCar {}
+var sig Offline in TrainCar {}
 
 fact Trains {
     // Head of the train has no successor
@@ -54,8 +54,66 @@ run {
 
 
 // Train positions - definition
+sig TrainCarPosition {
+    car: one Head,
+    var tracks: some Track
+}
 
-// Train movement 
+fact TrainCarPositions {
+    car in TrainCarPosition one -> one Head
+}
+
+// Events
+
+pred move[car: TrainCar] {
+    no car
+}
+pred updatePosition[head: Head] {
+    // Guard: the head is online
+    head not in Offline
+
+    // Effect: the head of the train updates its position
+    tracks' = tracks ++ car.head -> head.*~succ.track
+    state' = state ++ car.head.tracks' -> Occupied
+
+    // Frame conditions
+    succ' = succ
+    track' = track
+    Offline' = Offline
+}
+pred disconnect[car: TrainCar] {
+    // Guard: the car is not the head of the train
+    some car.succ
+
+    // Effect: the car is disconnected from the train
+    succ' = succ - (car <: succ)
+
+    // Frame conditions
+    state' = state
+    track' = track
+    tracks' = tracks
+    Offline' = Offline
+}
+pred stutter {
+    state' = state
+    succ' = succ
+    track' = track
+    tracks' = tracks
+    Offline' = Offline
+}
+
+fact transitions {
+    always (
+        some car: TrainCar | move[car] or
+        some head: Head | updatePosition[head] or
+        some car: TrainCar | disconnect[car] or
+        stutter
+    )
+}
 
 // Temporal properties that should hold for every execution 
 
+// A track that has a train car on it should be considered occupied or unknown
+pred trackWithCarOccupiedOrUnknown {
+    always TrainCar.track.state in Occupied + Unknown
+}
