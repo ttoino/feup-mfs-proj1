@@ -7,6 +7,16 @@ sig Junction, Entry, Exit in Track {}
 abstract sig State {}
 one sig Free, Occupied, Unknown extends State {}
 
+fun Free: set Track {
+    { t: Track | t.state = Free }
+}
+fun Occupied: set Track {
+    { t: Track | t.state = Occupied }
+}
+fun Unknown: set Track {
+    { t: Track | t.state = Unknown }
+}
+
 fact Tracks {
     // No loops
     disj[iden, ^succs]
