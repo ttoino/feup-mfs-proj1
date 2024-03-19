@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<alloy>
+
+<view>
+
+<defaultnode/>
+
+<defaultedge/>
+
+<node>
+   <type name="Free"/>
+   <type name="Int"/>
+   <type name="Occupied"/>
+   <type name="String"/>
+   <type name="Track"/>
+   <type name="univ"/>
+   <type name="Unknown"/>
+   <type name="seq/Int"/>
+   <set name="this/Entry" type="Track"/>
+   <set name="this/Exit" type="Track"/>
+   <set name="this/Head" type="TrainCar"/>
+   <set name="this/Junction" type="Track"/>
+   <set name="this/Tail" type="TrainCar"/>
+</node>
+
+<node color="Black">
+   <set name="this/Offline" type="TrainCar"/>
+</node>
+
+<node shape="Parallelogram" color="Blue">
+   <type name="TrainCar"/>
+</node>
+
+<node shape="Trapezoid" color="Gray">
+   <type name="TrainCarPosition"/>
+</node>
+
+<node showlabel="no" color="Red">
+   <set name="$Occupied" type="Track"/>
+</node>
+
+<node showlabel="no" color="Yellow">
+   <set name="$Unknown" type="Track"/>
+</node>
+
+<node visible="no">
+   <type name="State"/>
+</node>
+
+<node visible="no" showlabel="no" color="Green">
+   <set name="$Free" type="Track"/>
+</node>
+
+</view>
+
+</alloy>
