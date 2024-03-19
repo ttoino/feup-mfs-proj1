@@ -33,9 +33,10 @@ fact Tracks {
 sig TrainCar {
     var succ: lone TrainCar,
     var track: one Track,
+    var lastKnownTrack: one Track,
 }
 sig Head, Tail in TrainCar {}
-var sig Offline in TrainCar {}
+var sig Offline in Head {}
 
 fact Trains {
     // Head of the train has no successor
@@ -62,36 +63,35 @@ run {
     some succs
 } for 10
 
-
-// Train positions - definition
-sig TrainCarPosition {
-    car: one Head,
-    var tracks: some Track
-}
-
-fact TrainCarPositions {
-    car in TrainCarPosition one -> one Head
-}
-
 // Events
 
 pred move[car: TrainCar] {
-    no car
-}
-pred updatePosition[head: Head] {
-    // Guard: the head is online
-    head not in Offline
+    // Guard: must not be split
+    some Head & car.*succ
 
-    // Effect: the head of the train updates its position
-    tracks' = tracks ++ car.head -> head.*~succ.track
-    state' = state ++ car.head.tracks' -> Occupied
+    // Guard: the successor must be ahead
+    car.succ.track in car.track.^succs
+
+    // Guard: if head, the next track must be free
+    car in Head => car.track.succs.state = Free
+
+    // Effect: the car moves to the next track
+    track' = track ++ car <: track.succs
+
+    // Effect: if head and online, send positions
+    car in Head - Offline => updatePosition[car]
 
     // Frame conditions
-    succ' = succ
-    track' = track
     Offline' = Offline
 }
-pred disconnect[car: TrainCar] {
+pred updatePosition[head: Head] {
+    // Effect: the train updates its position
+    lastKnownTrack' = lastKnownTrack ++ head.*~succ <: track
+
+    // TODO: update state of tracks
+    state' = state ++ head.*~succ.lastKnownTrack -> Occupied
+}
+pred split[car: TrainCar] {
     // Guard: the car is not the head of the train
     some car.succ
 
@@ -101,22 +101,57 @@ pred disconnect[car: TrainCar] {
     // Frame conditions
     state' = state
     track' = track
-    tracks' = tracks
+    lastKnownTrack' = lastKnownTrack
     Offline' = Offline
+}
+pred disconnect[head: Head] {
+    // Guard: the head is online
+    head not in Offline
+
+    // Effect: the head loses connection
+    Offline' = Offline + head
+
+    // Effect: tracks are marked as unknown
+    state' = state ++ head.*~succ.lastKnownTrack.*(succs :> Free) -> Unknown
+
+    // Frame conditions
+    state' = state
+    succ' = succ
+    track' = track
+    lastKnownTrack' = lastKnownTrack
+}
+pred connect[head: Head] {
+    // Guard: the head is offline
+    head in Offline
+
+    // Effect: the head reconnects
+    Offline' = Offline - head
+
+    // Frame conditions
+    state' = state
+    succ' = succ
+    track' = track
+    lastKnownTrack' = lastKnownTrack
 }
 pred stutter {
     state' = state
     succ' = succ
     track' = track
-    tracks' = tracks
+    lastKnownTrack' = lastKnownTrack
     Offline' = Offline
+}
+
+
+fact init {
+    
 }
 
 fact transitions {
     always (
         some car: TrainCar | move[car] or
-        some head: Head | updatePosition[head] or
-        some car: TrainCar | disconnect[car] or
+        some car: TrainCar | split[car] or
+        some head: Head | disconnect[head] or
+        some head: Head | connect[head] or
         stutter
     )
 }
@@ -127,3 +162,5 @@ fact transitions {
 pred trackWithCarOccupiedOrUnknown {
     always TrainCar.track.state in Occupied + Unknown
 }
+
+check trackWithCarOccupiedOrUnknown for 10
