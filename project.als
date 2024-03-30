@@ -107,7 +107,7 @@ pred updatePosition[head: Head] {
     succ' = succ
     track' = track
     lastKnownTailPosition' = lastKnownTailPosition
-    Offline' = offline
+    Offline' = Offline
 }
 pred split[car: TrainCar] {
     // Guard: the car is not the head of the train
