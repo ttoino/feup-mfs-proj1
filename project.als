@@ -35,7 +35,10 @@ sig TrainCar {
     var track: one Track,
     var lastKnownTrack: one Track,
 }
-sig Head, Tail in TrainCar {}
+sig Tail in TrainCar {}
+sig Head in TrainCar {
+    var lastKnownTailPosition: one Track,
+}
 var sig Offline in Head {}
 
 fact Trains {
@@ -81,6 +84,9 @@ pred move[car: TrainCar] {
     // Effect: if head and online, send positions
     car in Head - Offline => updatePosition[car]
 
+    // Effect: if tail is connected to head, update last known position of the tail
+    some h: Head | car in Tail and h in car.^succ => h.lastKnownTailPosition' = car.track
+
     // Frame conditions
     Offline' = Offline
 }
@@ -90,6 +96,9 @@ pred updatePosition[head: Head] {
 
     // TODO: update state of tracks
     state' = state ++ head.*~succ.lastKnownTrack -> Occupied
+    state' = state ++ (head.lastKnownTailPosition.*succs - head.*~succ.lastKnownTrack.*succs) -> Unknown
+    
+    // Effect: set as Free the track where the tail left. Other trains??
 }
 pred split[car: TrainCar] {
     // Guard: the car is not the head of the train
@@ -143,7 +152,17 @@ pred stutter {
 
 
 fact init {
-    
+    // There is no loss of connection
+    all h: Head | h not in Offline
+
+    // The state of all tracks is known
+    all t:Track | t.state != Unknown
+
+    // The tracks occupied by train cars are Occupied
+    all c: TrainCar | c.track.state = Occupied
+
+    // There are no loose train cars
+    all t:Tail | some h:Head | h in t.^succ
 }
 
 fact transitions {
