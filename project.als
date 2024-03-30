@@ -2,22 +2,22 @@ sig Track {
 	succs : set Track,
     var state: one State,
 }
-sig Junction, Entry, Exit in Track {}
+sig Entry, Exit in Track {}
 
 abstract sig State {}
 one sig Free, Occupied, Unknown extends State {}
 
-fun Free: set Track {
-    { t: Track | t.state = Free }
+fun FreeTrack: set Track {
+    state.Free
 }
-fun Occupied: set Track {
-    { t: Track | t.state = Occupied }
+fun OccupiedTrack: set Track {
+    state.Occupied
 }
-fun Unknown: set Track {
-    { t: Track | t.state = Unknown }
+fun UnknownTrack: set Track {
+    state.Unknown
 }
 
-fact Tracks {
+fact trackInit {
     // No loops
     disj[iden, ^succs]
 
@@ -26,173 +26,256 @@ fact Tracks {
     // Exits are the tracks that have no successors
 	Exit = (Track - succs.Track)
 
-    // Junctions are the tracks that have more than one predecessor
-    Junction = { j: Track | some p1, p2: succs.j | p1 != p2 }
+    // All exits accessible from all entries
+    all e: Entry | Exit in e.^succs
+
+    // At the start all tracks are free
+    Track = FreeTrack
 }
 
-sig TrainCar {
-    var succ: lone TrainCar,
-    var track: one Track,
-    var lastKnownTrack: one Track,
+sig Train {
+    var track: lone Track,
+    var lastKnownHeadTrack: lone Track,
+    var lastKnownTailTrack: lone Track,
 }
-sig Tail in TrainCar {}
-sig Head in TrainCar {
-    var lastKnownTailPosition: one Track,
+var sig Offline, Split in Train {}
+
+fact trainInit {
+    // At the start trains are not in any track
+    no track
+    no lastKnownHeadTrack
+    no lastKnownTailTrack
+
+    // At the start trains are not split or offline
+    no Split
+    no Offline
 }
-var sig Offline in Head {}
-
-fact Trains {
-    // Head of the train has no successor
-    Head = { t: TrainCar | no t.succ }
-    // Tail of the train has no predecessor
-    Tail = { t: TrainCar | no succ.t }
-    
-    // No loops
-    always disj[iden, ^succ]
-
-    // TrainCars can only have one successor and predecessor
-    always succ in TrainCar lone -> lone TrainCar
-}
-
-fact TrainsAndTracks {
-    // Successive train cars are on successive tracks or on the same track
-    always all t: TrainCar | t.succ.track in t.track + t.track.succs
-}
-
-run {
-    some Track
-    some TrainCar
-    some succ
-    some succs
-} for 10
 
 // Events
 
-pred move[car: TrainCar] {
-    // Guard: must not be split
-    some Head & car.*succ
+pred enter[train: Train, entry: Entry] {
+    // Guard: the train is not in any track
+    no train.track
+    
+    // Guard: the entry is free
+    entry in FreeTrack
 
-    // Guard: the successor must be ahead
-    car.succ.track in car.track.^succs
-
-    // Guard: if head, the next track must be free
-    car in Head => car.track.succs.state = Free
-
-    // Effect: the car moves to the next track
-    track' = track ++ car <: track.succs
-
-    // Effect: if head and online, send positions
-    car in Head - Offline => updatePosition[car]
-
-    // Effect: if tail is connected to head, update last known position of the tail
-    some h: Head | car in Tail and h in car.^succ => h.lastKnownTailPosition' = car.track
-
-    // Effect: if tail is connected and head is online, set the track free
-    some h: Head | car in Tail and h in car.^succ and h not in Offline => car.track.state' = Free // Maybe change to a new predicate
+    // Effect: the train enters the track
+    track' = track ++ train -> entry
+    lastKnownHeadTrack' = lastKnownHeadTrack ++ train -> entry
+    lastKnownTailTrack' = lastKnownTailTrack ++ train -> entry
 
     // Frame conditions
     Offline' = Offline
+    Split' = Split
 }
-pred updatePosition[head: Head] {
+
+pred exit[train: Train] {
+    // Guard: the train is not split or offline
+    train not in Split
+    train not in Offline
+
+    // Guard: the train is in an exit
+    some train.track
+    train.track in Exit
+
+    // Effect: the train exits the track
+    track' = track - (train -> Track)
+    lastKnownHeadTrack' = lastKnownHeadTrack - (train -> Track)
+    lastKnownTailTrack' = lastKnownTailTrack - (train -> Track)
+
+    // Frame conditions
+    Offline' = Offline
+    Split' = Split
+}
+
+pred move[train: Train] {
+    // Guard: the train is in a track
+    some train.track
+
+    // Guard: the train cannot move onto a track that is not free
+    train.track' in FreeTrack
+
+    // Effect: the train moves to the next track
+    one train.track'
+    track' in track + (train <: track.succs)
+    track - (train -> Track) in track'
+
     // Effect: the train updates its position
-    lastKnownTrack' = lastKnownTrack ++ head.*~succ <: track
-
-    // Effect: the tracks where the train is are marked as occupied
-    state' = state ++ head.*~succ.lastKnownTrack -> Occupied
-
-    // Effect: the tracks between the last known position of the tail and the last connected position of the train are marked as Unknown
-    state' = state ++ (head.lastKnownTailPosition.*succs - head.*~succ.lastKnownTrack.*succs) -> Unknown
+    updateTrainPosition[train]
 
     // Frame conditions
-    succ' = succ
+    Offline' = Offline
+    Split' = Split
+}
+
+pred split[train: Train] {
+    // Guard: the train is in a track
+    some train.track
+
+    // Guard: the train is not split
+    train not in Split 
+
+    // Effect: the train is split
+    Split' = Split + train    
+
+    // Frame conditions
     track' = track
-    lastKnownTailPosition' = lastKnownTailPosition
+    lastKnownHeadTrack' = lastKnownHeadTrack
+    lastKnownTailTrack' = lastKnownTailTrack
     Offline' = Offline
 }
-pred split[car: TrainCar] {
-    // Guard: the car is not the head of the train
-    some car.succ
 
-    // Effect: the car is disconnected from the train
-    succ' = succ - (car <: succ)
+pred disconnect[train: Train] {
+    // Guard: the train is in a track
+    some train.track
 
-    // Frame conditions
-    state' = state
-    track' = track
-    lastKnownTrack' = lastKnownTrack
-    lastKnownTailPosition' = lastKnownTailPosition
-    Offline' = Offline
-}
-pred disconnect[head: Head] {
-    // Guard: the head is online
-    head not in Offline
+    // Guard: the train is online
+    train not in Offline
 
-    // Effect: the head loses connection
-    Offline' = Offline + head
-
-    // Effect: tracks are marked as unknown
-    state' = state ++ head.*~succ.lastKnownTrack.*(succs :> Free) -> Unknown
+    // Effect: the train disconnects
+    Offline' = Offline + train
 
     // Frame conditions
-    state' = state
-    succ' = succ
     track' = track
-    lastKnownTrack' = lastKnownTrack
-    lastKnownTailPosition' = lastKnownTailPosition
+    lastKnownHeadTrack' = lastKnownHeadTrack
+    lastKnownTailTrack' = lastKnownTailTrack
+    Split' = Split
 }
-pred connect[head: Head] {
-    // Guard: the head is offline
-    head in Offline
 
-    // Effect: the head reconnects
-    Offline' = Offline - head
+pred connect[train: Train] {
+    // Guard: the train is in a track
+    some train.track
+
+    // Guard: the train is offline
+    train in Offline
+
+    // Effect: the train reconnects
+    Offline' = Offline - train
+
+    // Effect: the train updates its position
+    updateTrainPosition[train]
 
     // Frame conditions
-    state' = state
-    succ' = succ
     track' = track
-    lastKnownTrack' = lastKnownTrack
-    lastKnownTailPosition' = lastKnownTailPosition
+    Split' = Split
 }
+
 pred stutter {
-    state' = state
-    succ' = succ
     track' = track
-    lastKnownTrack' = lastKnownTrack
-    lastKnownTailPosition' = lastKnownTailPosition
+    lastKnownHeadTrack' = lastKnownHeadTrack
+    lastKnownTailTrack' = lastKnownTailTrack
     Offline' = Offline
+    Split' = Split
 }
 
+pred updateTrainPosition[train: Train] {
+    // if online, the train updates its position
+    train not in Offline' => (
+        lastKnownHeadTrack' = lastKnownHeadTrack ++ train <: track' &&
+        // if not split, the tail position is updated
+        (train not in Split' => lastKnownTailTrack' = lastKnownTailTrack ++ train <: track'
+        else lastKnownTailTrack' = lastKnownTailTrack)
+    ) else (
+        lastKnownHeadTrack' = lastKnownHeadTrack &&
+        lastKnownTailTrack' = lastKnownTailTrack
+    )
+}
 
-fact init {
-    // There is no loss of connection
-    all h: Head | h not in Offline
-
-    // The state of all tracks is known
-    all t:Track | t.state != Unknown
-
-    // The tracks occupied by train cars are Occupied
-    all c: TrainCar | c.track.state = Occupied
-
-    // There are no loose train cars
-    all t:Tail | some h:Head | h in t.^succ
+pred updateTrackState {
+    // if offline, the track is unknown from the tail forward
+    // if split, the track is unknown from the tail to the head
+    // if online, the track is occupied in the head
+    all track: Track | (
+        (track in (Train - Offline).lastKnownHeadTrack) => track in OccupiedTrack else
+        (track in Offline.lastKnownTailTrack.*succs) => track in UnknownTrack else
+        (some t: Split - Offline | track in (t.lastKnownTailTrack.*succs & t.lastKnownHeadTrack.^~succs)) => track in UnknownTrack else
+        track in FreeTrack
+    )
 }
 
 fact transitions {
-    always (
-        some car: TrainCar | move[car] or
-        some car: TrainCar | split[car] or
-        some head: Head | disconnect[head] or
-        some head: Head | connect[head] or
+    always ((
+        some train: Train, entry: Entry | enter[train, entry] or
+        some train: Train | exit[train] or
+        some train: Train | move[train] or
+        some train: Train | split[train] or
+        some train: Train | disconnect[train] or
+        some train: Train | connect[train] or
         stutter
-    )
+    ) and updateTrackState)
 }
+
+// Example scenarios
+
+pred noForks {
+    succs in Track lone -> lone Track
+}
+
+pred forks {
+    some t: Track | not lone t.succs
+}
+
+pred noSplits {
+    always no Split
+}
+
+pred splits {
+    eventually some Split
+}
+
+pred noDisconnections {
+    always no Offline
+}
+
+pred disconnections {
+    eventually some Offline
+}
+
+pred eventuallyAllExit {
+    all t: Train | eventually exit[t]
+}
+
+pred eventuallyAllAtOnce {
+    eventually all t: Train | some t.track
+}
+
+// Only one train, no forks, no splits, no disconnections
+run simplest {
+    noForks
+    noSplits
+    noDisconnections
+    eventuallyAllExit
+} for 5 but exactly 1 Train, exactly 3 Track
+
+// More trains, no forks, no splits, no disconnections
+run lotsOfTrains {
+    noForks
+    noSplits
+    noDisconnections
+    eventuallyAllExit
+    eventuallyAllAtOnce
+} for 5 but exactly 3 Train, exactly 3 Track, 20 steps
+
+// More trains, forks, splits, disconnections
+run complicated {
+    forks
+    splits
+    disconnections
+    eventuallyAllAtOnce
+
+    #Exit = 2
+    #Entry = 2
+} for 10 but exactly 3 Train, exactly 10 Track, 20 steps
 
 // Temporal properties that should hold for every execution 
 
 // A track that has a train car on it should be considered occupied or unknown
-pred trackWithCarOccupiedOrUnknown {
-    always TrainCar.track.state in Occupied + Unknown
+check trackWithCarOccupiedOrUnknown {
+    always Train.track in OccupiedTrack + UnknownTrack
 }
 
-check trackWithCarOccupiedOrUnknown for 10
+// There should be no collisions (two trains in the same track)
+check noCollisions {
+    always all disj t1, t2: Train | t1.track != t2.track
+}

@@ -16,39 +16,42 @@
    <type name="univ"/>
    <type name="Unknown"/>
    <type name="seq/Int"/>
-   <set name="this/Entry" type="Track"/>
-   <set name="this/Exit" type="Track"/>
-   <set name="this/Head" type="TrainCar"/>
-   <set name="this/Junction" type="Track"/>
-   <set name="this/Tail" type="TrainCar"/>
 </node>
 
-<node color="Black">
-   <set name="this/Offline" type="TrainCar"/>
+<node shape="Trapezoid" color="Blue">
+   <type name="Train"/>
 </node>
 
-<node shape="Parallelogram" color="Blue">
-   <type name="TrainCar"/>
+<node showlabel="no">
+   <set name="$UnknownTrack" type="Track"/>
 </node>
 
-<node shape="Trapezoid" color="Gray">
-   <type name="TrainCarPosition"/>
+<node showlabel="no" color="Gray">
+   <set name="this/Offline" type="Train"/>
+</node>
+
+<node showlabel="no" color="Green">
+   <set name="$FreeTrack" type="Track"/>
 </node>
 
 <node showlabel="no" color="Red">
-   <set name="$Occupied" type="Track"/>
+   <set name="$OccupiedTrack" type="Track"/>
 </node>
 
-<node showlabel="no" color="Yellow">
-   <set name="$Unknown" type="Track"/>
+<node showlabel="no" shape="House">
+   <set name="this/Entry" type="Track"/>
+</node>
+
+<node showlabel="no" shape="Octagon">
+   <set name="this/Exit" type="Track"/>
+</node>
+
+<node showlabel="no" shape="Parallelogram">
+   <set name="this/Split" type="Train"/>
 </node>
 
 <node visible="no">
    <type name="State"/>
-</node>
-
-<node visible="no" showlabel="no" color="Green">
-   <set name="$Free" type="Track"/>
 </node>
 
 </view>
