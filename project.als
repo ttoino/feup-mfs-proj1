@@ -87,6 +87,9 @@ pred move[car: TrainCar] {
     // Effect: if tail is connected to head, update last known position of the tail
     some h: Head | car in Tail and h in car.^succ => h.lastKnownTailPosition' = car.track
 
+    // Effect: if tail is connected and head is online, set the track free
+    some h: Head | car in Tail and h in car.^succ and h not in Offline => car.track.state' = Free // Maybe change to a new predicate
+
     // Frame conditions
     Offline' = Offline
 }
@@ -94,11 +97,17 @@ pred updatePosition[head: Head] {
     // Effect: the train updates its position
     lastKnownTrack' = lastKnownTrack ++ head.*~succ <: track
 
-    // TODO: update state of tracks
+    // Effect: the tracks where the train is are marked as occupied
     state' = state ++ head.*~succ.lastKnownTrack -> Occupied
+
+    // Effect: the tracks between the last known position of the tail and the last connected position of the train are marked as Unknown
     state' = state ++ (head.lastKnownTailPosition.*succs - head.*~succ.lastKnownTrack.*succs) -> Unknown
-    
-    // Effect: set as Free the track where the tail left. Other trains??
+
+    // Frame conditions
+    succ' = succ
+    track' = track
+    lastKnownTailPosition' = lastKnownTailPosition
+    Offline' = offline
 }
 pred split[car: TrainCar] {
     // Guard: the car is not the head of the train
@@ -111,6 +120,7 @@ pred split[car: TrainCar] {
     state' = state
     track' = track
     lastKnownTrack' = lastKnownTrack
+    lastKnownTailPosition' = lastKnownTailPosition
     Offline' = Offline
 }
 pred disconnect[head: Head] {
@@ -128,6 +138,7 @@ pred disconnect[head: Head] {
     succ' = succ
     track' = track
     lastKnownTrack' = lastKnownTrack
+    lastKnownTailPosition' = lastKnownTailPosition
 }
 pred connect[head: Head] {
     // Guard: the head is offline
@@ -141,12 +152,14 @@ pred connect[head: Head] {
     succ' = succ
     track' = track
     lastKnownTrack' = lastKnownTrack
+    lastKnownTailPosition' = lastKnownTailPosition
 }
 pred stutter {
     state' = state
     succ' = succ
     track' = track
     lastKnownTrack' = lastKnownTrack
+    lastKnownTailPosition' = lastKnownTailPosition
     Offline' = Offline
 }
 
