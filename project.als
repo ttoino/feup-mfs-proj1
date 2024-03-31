@@ -271,11 +271,11 @@ run complicated {
 // Temporal properties that should hold for every execution 
 
 // A track that has a train car on it should be considered occupied or unknown
-check trackWithCarOccupiedOrUnknown {
+check trackWithTrainOccupiedOrUnknown {
     always Train.track in OccupiedTrack + UnknownTrack
 }
 
 // There should be no collisions (two trains in the same track)
 check noCollisions {
-    always all disj t1, t2: Train | t1.track != t2.track
+    always all disj t1, t2: track.Track | t1.track != t2.track
 }
