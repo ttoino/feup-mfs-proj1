@@ -16,8 +16,9 @@ In this project we explore the modeling, validation, and verification of a Level
 
 #### Track
 
-- We defined the train line as a directed acyclic graph of `Track`s, each representing a portion of the line. Each `Track` knows which Tracks come after itself.
-- `Track`s can be categorized as `Entry` or `Exit` tracks based on their connectivity to other tracks. If a `Track` is the start of the line, it is an `Entry`, if it is the end of the line, it is an `Exit`.
+- We defined the train line as a graph of `Track`s, each representing a portion of the line. Each `Track` knows which Tracks come after itself.
+- This graph is a directed acyclic graph, meaning that there are no loops in the track. Additionally, a track cannot be skipped, meaning that if there is a sequence A &rarr; B &rarr; C, there cannot be a sequence A &rarr; C.
+- `Track`s can be categorized as `Entry` or `Exit` tracks based on their connectivity to other tracks. If a `Track` is the start of the line, it is an `Entry`, if it is the end of the line, it is an `Exit`. A track cannot be both an `Entry` and an `Exit`.
 - The state of each track can be `Free`, `Occupied`, or `Unknown`, which is determined by the presence of trains and communication status.
 - Initialization: At the systems initial phase, all tracks are considered to be in the `Free` state. This represents the default condition where no trains are present, and the tracks are available for use.
 
@@ -91,17 +92,27 @@ Track state update is modeled through the `updateTrackState` predicate:
 - If a train is offline, the tracks ahead of itself are marked as `Unknown`;
 - All other tracks are marked as `Free`.
 
-### 2.4 Validation of structural model
+### 2.4 Validation of structural and behavioral model
 
 We employed run commands to explore and validate the expected configurations of our structural model.
+The structural properties where checked in the first step of each trace, and the behavioral properties in the remaining steps.
 
 The following run commands were utilized:
 
 - `simplest`: A simple configuration with one train and three tracks, ensuring no forks, splits, or disconnections, and that the train eventually exits the system.
-- `lotsOfTrains`: A more complex configuration with three trains and twenty tracks, ensuring no forks, splits, or disconnections, and that all trains are in the system at once and eventually exit the system.
-- `complicated`: A complex configuration with three trains and ten tracks, ensuring forks, splits, and disconnections, and that all trains are in the system at once.
+- `lotsOfTrains`: A more complex configuration with three trains and three tracks, ensuring no forks, splits, or disconnections, and that all trains are in the system at once and eventually exit the system.
+- `complicated`: A complex configuration with three trains and ten tracks, ensuring forks, splits and disconnections, that the first train to enter is split at the entrance and then moves to an exit, that at least one train successfully exits, and that at the end there is a dead lock (no train can move).
 
-### 2.5 Specification and Verification of behavioral properties
+### 2.5 Specification and Verification of structural properties
+
+We employed check commands to verify the expected structure of our model.
+
+The following check commands were utilized:
+
+- `allExitsReachable`: A check to ensure that all `Exit` tracks are reachable from an `Entry` track.
+- `someExitReachable`: A check to ensure that at least one `Exit` track is reachable from any track.
+
+### 2.6 Specification and Verification of behavioral properties
 
 We employed check commands to verify the expected behavior of our model.
 
@@ -109,6 +120,8 @@ The following check commands were utilized:
 
 - `trackWithTrackOccupiedOrUnknown`: A check to ensure that tracks with a train on them are considered occupied or unknown.
 - `noCollisions`: A check to ensure that there are no collisions, i.e., two trains in the same track.
+- `noSplitsOrDisconnectionsAllCanExit`: A check to ensure that when there are no splits or disconnections, all trains can exit the system (but they don't have to).
+- `noSplitsWithReconnectionsAllCanExit`: A check to ensure that when there are no splits, all trains can exit the system (but they don't have to), on the condition that all trains that disconnect eventually reconnect.
 
 ## 3. Theme definition
 
