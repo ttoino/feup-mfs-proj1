@@ -33,9 +33,11 @@ In this project we explore the modeling, validation, and verification of a Level
   - `Offline`: denotes that the train is currently disconnected from the system;
   - `Split`: indicates that the train is segmented into multiple parts.
 - Initialization: Initially, trains are not associated with any track and are neither `Split` nor `Offline`.
-
-
-- In the early stages of our project, we started with a more complex model where trains were represented by their head, tail, and potential middle cars. However, as we progressed, we faced challenges, particularly when dealing with scenarios where trains could split. Managing the state and movements of multiple cars became quite confusing, leading to a very much complicated code. So, we opted for a simplified approach in our final implementation where each train is represented as a single entity, with a head and tail, no longer including middle cars. This simplification not only made our code cleaner but also made it easier to model train behaviors, especially in cases involving train splitting.
+- In the early stages of our project, we started with a more complex model where trains were represented by their head, tail, and potential middle cars.
+  However, as we progressed, we faced challenges, particularly when dealing with scenarios where trains could split.
+  Managing the state and movements of multiple cars became quite confusing, leading to very complicated code.
+  So, we opted for a simplified approach in our final implementation where each train is represented as a single entity, with a head and tail, no longer including middle cars.
+  This simplification not only made our code cleaner but also made it easier to model train behaviors, especially in cases involving train splitting.
 
 ### 2.2 Dynamic elements
 
